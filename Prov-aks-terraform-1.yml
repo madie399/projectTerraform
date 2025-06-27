@@ -4,37 +4,71 @@ trigger:
       - main
 
 stages:
-- stage: __default
+- stage: Terraform
   jobs:
-  - job: Job
+  - job: ProvisionInfra
     pool:
       vmImage: ubuntu-latest
 
     steps:
-    # ✅ Say Hello
+
+    # ✅ Step 1: Hello
     - task: CmdLine@2
       displayName: 'Hello Message'
       inputs:
-        script: echo "🚀 Hello Terraform AKS!"
+        script: echo "🚀 Starting Terraform Pipeline"
 
-    # ✅ Install Terraform manually
+    # ✅ Step 2: Install Terraform
     - script: |
-        curl --retry 3 --connect-timeout 10 --max-time 60 --location --fail \
-          https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip \
-          -o terraform.zip
+        curl -L -o terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
         unzip terraform.zip
         sudo mv terraform /usr/local/bin/
         chmod +x /usr/local/bin/terraform
         terraform version
       displayName: 'Install Terraform 1.5.7'
 
-    # ✅ Download SSH key
+    # ✅ Step 3: Install Azure CLI (safe for Microsoft-hosted agents)
+    - script: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        az version
+      displayName: 'Install Azure CLI'
+
+    # ✅ Step 4: Log in to Azure using SP
+    - script: |
+        az login --service-principal \
+          -u "$(client_id)" \
+          -p "$(client_secret)" \
+          --tenant d5d40ca8-b5aa-4d8f-8272-407b515cb5a7
+      displayName: 'Azure Login with SP'
+      env:
+        client_id: $(client_id)
+        client_secret: $(client_secret)
+
+    # ✅ Step 5: Create Backend Resources (RG, Storage Account, Container)
+    - script: |
+        az group create \
+          --name rg-akas-terraform-01 \
+          --location eastus
+
+        az storage account create \
+          --name staksterraform001 \
+          --resource-group rg-akas-terraform-01 \
+          --location eastus \
+          --sku Standard_LRS \
+          --encryption-services blob
+
+        az storage container create \
+          --name container1 \
+          --account-name staksterraform001
+      displayName: 'Create Backend (RG + SA + Container)'
+
+    # ✅ Step 6: Download SSH Key
     - task: DownloadSecureFile@1
       name: publickey
       inputs:
         secureFile: 'azure_rsa.pub'
 
-# ✅ Step 4: Terraform Init (Correct folder + auth env)
+    # ✅ Step 7: Terraform Init
     - script: |
         cd $(System.DefaultWorkingDirectory)
 
@@ -52,7 +86,7 @@ stages:
         ARM_SUBSCRIPTION_ID: ee319277-edaa-4c07-9b91-04d1eb7bf895
         ARM_TENANT_ID: d5d40ca8-b5aa-4d8f-8272-407b515cb5a7
 
-    # ✅ Step 5: Terraform Apply (Correct folder + env)
+    # ✅ Step 8: Terraform Apply
     - script: |
         cd $(System.DefaultWorkingDirectory)
 
@@ -60,7 +94,7 @@ stages:
           -var="client_id=$(client_id)" \
           -var="client_secret=$(client_secret)" \
           -var="ssh_public_key=$(publickey.secureFilePath)"
-      displayName: 'Terraform Apply (Create Infra)'
+      displayName: 'Terraform Apply'
       env:
         ARM_CLIENT_ID: $(client_id)
         ARM_CLIENT_SECRET: $(client_secret)
