@@ -47,15 +47,6 @@ stages:
           -backend-config="tenant_id=d5d40ca8-b5aa-4d8f-8272-407b515cb5a7"
       displayName: 'Terraform Init'
 
-    # ✅ Terraform Plan
-    - script: |
-        cd $(System.DefaultWorkingDirectory)
-
-        terraform plan \
-          -var="client_id=$(client_id)" \
-          -var="client_secret=$(client_secret)" \
-          -var="ssh_public_key=$(publickey.secureFilePath)"
-      displayName: 'Terraform Plan'
 
     # ✅ Terraform Apply
     - script: |
