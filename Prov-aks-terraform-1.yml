@@ -1,36 +1,59 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  branches:
+    include:
+      - main
 
-pool:
-  vmImage: ubuntu-latest
+stages:
+- stage: __default
+  jobs:
+  - job: Job
+    pool:
+      vmImage: ubuntu-latest
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+    steps:
+    # ✅ Step 1: Say Hello
+    - task: CmdLine@2
+      displayName: 'Hello Message'
+      inputs:
+        script: echo "🚀 Hello Terraform AKS!"
 
-- task: DownloadSecureFile@1
-  name: publickey
-  inputs:
-    secureFile: 'azure_rsa.pub'
+    # ✅ Step 2: Install Terraform manually (with retry & timeout)
+    - script: |
+        echo "🔽 Downloading Terraform 1.5.7..."
+        curl --retry 3 --connect-timeout 10 --max-time 60 --location --fail \
+          https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip \
+          -o terraform.zip
 
-- task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+        echo "📦 Unzipping..."
+        unzip terraform.zip
 
-- task: TerraformCLI@0
-  inputs:
-    provider: 'azurerm'
-    command: 'init'
-    backendAzureRmUseCliFlagsForAuthentication: true
-    workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
-    commandOptions: '-var client_id=$(client_id) -var client_secret=$(client_secret) -var ssh_piblic_key=$(publickey.secureFilePath)'
-    backendAzureRmUseIdTokenGeneration: true
-    backendServiceArm: 'sc-azure-resourcemanager'
-    backendAzureRmResourceGroupName: 'rg-akas-terraform-01'
-    backendAzureRmStorageAccountName: 'staksterraform001'
-    backendAzureRmContainerName: 'container1'
-    backendAzureRmKey: 'kubernetes-dev.tfstate'
+        echo "📁 Installing..."
+        sudo mv terraform /usr/local/bin/
+        chmod +x /usr/local/bin/terraform
 
+        echo "✅ Terraform version:"
+        terraform version
+      displayName: 'Install Terraform 1.5.7'
+
+    # ✅ Step 3: Download SSH public key
+    - task: DownloadSecureFile@1
+      name: publickey
+      inputs:
+        secureFile: 'azure_rsa.pub'
+
+    # ✅ Step 4: Run Terraform Init using script
+    - script: |
+        echo "📁 Navigating to working directory"
+        cd $(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes
+
+        echo "⚙️ Running terraform init"
+        terraform init \
+          -backend-config="resource_group_name=rg-akas-terraform-01" \
+          -backend-config="storage_account_name=staksterraform001" \
+          -backend-config="container_name=container1" \
+          -backend-config="key=kubernetes-dev.tfstate" \
+          -backend-config="subscription_id=ee319277-edaa-4c07-9b91-04d1eb7bf895" \
+          -backend-config="tenant_id=d5d40ca8-b5aa-4d8f-8272-407b515cb5a7"
+
+        echo "✅ Terraform Init Completed"
+      displayName: 'Terraform Init (Shell Script)'
