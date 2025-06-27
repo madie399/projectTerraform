@@ -11,42 +11,33 @@ stages:
       vmImage: ubuntu-latest
 
     steps:
-    # ✅ Step 1: Say Hello
+    # ✅ Say Hello
     - task: CmdLine@2
       displayName: 'Hello Message'
       inputs:
         script: echo "🚀 Hello Terraform AKS!"
 
-    # ✅ Step 2: Install Terraform manually (with retry & timeout)
+    # ✅ Install Terraform manually
     - script: |
-        echo "🔽 Downloading Terraform 1.5.7..."
         curl --retry 3 --connect-timeout 10 --max-time 60 --location --fail \
           https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip \
           -o terraform.zip
-
-        echo "📦 Unzipping..."
         unzip terraform.zip
-
-        echo "📁 Installing..."
         sudo mv terraform /usr/local/bin/
         chmod +x /usr/local/bin/terraform
-
-        echo "✅ Terraform version:"
         terraform version
       displayName: 'Install Terraform 1.5.7'
 
-    # ✅ Step 3: Download SSH public key
+    # ✅ Download SSH key
     - task: DownloadSecureFile@1
       name: publickey
       inputs:
         secureFile: 'azure_rsa.pub'
 
-    # ✅ Step 4: Run Terraform Init using script
+    # ✅ Terraform Init
     - script: |
-        echo "📁 Navigating to working directory"
         cd $(System.DefaultWorkingDirectory)
 
-        echo "⚙️ Running terraform init"
         terraform init \
           -backend-config="resource_group_name=rg-akas-terraform-01" \
           -backend-config="storage_account_name=staksterraform001" \
@@ -54,6 +45,24 @@ stages:
           -backend-config="key=kubernetes-dev.tfstate" \
           -backend-config="subscription_id=ee319277-edaa-4c07-9b91-04d1eb7bf895" \
           -backend-config="tenant_id=d5d40ca8-b5aa-4d8f-8272-407b515cb5a7"
+      displayName: 'Terraform Init'
 
-        echo "✅ Terraform Init Completed"
-      displayName: 'Terraform Init (Shell Script)'
+    # ✅ Terraform Plan
+    - script: |
+        cd $(System.DefaultWorkingDirectory)
+
+        terraform plan \
+          -var="client_id=$(client_id)" \
+          -var="client_secret=$(client_secret)" \
+          -var="ssh_public_key=$(publickey.secureFilePath)"
+      displayName: 'Terraform Plan'
+
+    # ✅ Terraform Apply
+    - script: |
+        cd $(System.DefaultWorkingDirectory)
+
+        terraform apply -auto-approve \
+          -var="client_id=$(client_id)" \
+          -var="client_secret=$(client_secret)" \
+          -var="ssh_public_key=$(publickey.secureFilePath)"
+      displayName: 'Terraform Apply (Creates Infrastructure)'
