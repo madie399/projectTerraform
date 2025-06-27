@@ -44,7 +44,7 @@ stages:
     # ✅ Step 4: Run Terraform Init using script
     - script: |
         echo "📁 Navigating to working directory"
-        cd $(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes
+        cd $(System.DefaultWorkingDirectory)
 
         echo "⚙️ Running terraform init"
         terraform init \
