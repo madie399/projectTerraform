@@ -34,7 +34,7 @@ stages:
       inputs:
         secureFile: 'azure_rsa.pub'
 
-    # ✅ Terraform Init
+# ✅ Step 4: Terraform Init (Correct folder + auth env)
     - script: |
         cd $(System.DefaultWorkingDirectory)
 
@@ -46,9 +46,13 @@ stages:
           -backend-config="subscription_id=ee319277-edaa-4c07-9b91-04d1eb7bf895" \
           -backend-config="tenant_id=d5d40ca8-b5aa-4d8f-8272-407b515cb5a7"
       displayName: 'Terraform Init'
+      env:
+        ARM_CLIENT_ID: $(client_id)
+        ARM_CLIENT_SECRET: $(client_secret)
+        ARM_SUBSCRIPTION_ID: ee319277-edaa-4c07-9b91-04d1eb7bf895
+        ARM_TENANT_ID: d5d40ca8-b5aa-4d8f-8272-407b515cb5a7
 
-
-    # ✅ Terraform Apply
+    # ✅ Step 5: Terraform Apply (Correct folder + env)
     - script: |
         cd $(System.DefaultWorkingDirectory)
 
@@ -56,4 +60,9 @@ stages:
           -var="client_id=$(client_id)" \
           -var="client_secret=$(client_secret)" \
           -var="ssh_public_key=$(publickey.secureFilePath)"
-      displayName: 'Terraform Apply (Creates Infrastructure)'
+      displayName: 'Terraform Apply (Create Infra)'
+      env:
+        ARM_CLIENT_ID: $(client_id)
+        ARM_CLIENT_SECRET: $(client_secret)
+        ARM_SUBSCRIPTION_ID: ee319277-edaa-4c07-9b91-04d1eb7bf895
+        ARM_TENANT_ID: d5d40ca8-b5aa-4d8f-8272-407b515cb5a7
